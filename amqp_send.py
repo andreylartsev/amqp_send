@@ -55,7 +55,7 @@ class Amqp10Sender(MessagingHandler):
                 binary_content = f.read()
 
             msg = Message()
-            msg.application_properties = self.headers
+            msg.properties = self.headers
             msg.body = binary_content
             msg.address = self.queue_name
 
