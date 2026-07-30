@@ -4,16 +4,21 @@ import argparse
 import json
 import os
 import sys
+from dotenv import load_dotenv 
 from proton import Message, SSLDomain
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
-# ==================== СТАТИЧЕСКАЯ КОНФИГУРАЦИЯ БРОКЕРА ====================
-BROKER_URL = "amqps://127.0.0.1:6667"     # Адрес брокера
-DEFAULT_QUEUE = "TO.QUEUE"                # очередь по умолчанию
-DEFAULT_HEADERS_FILE = "headers.json"     # JSON-файл заголовков по умолчанию
-USER_NAME = "main"                        # Имя пользователя брокера
-# ==========================================================================
+# Автоматически ищем и загружаем файл .env в системное окружение
+load_dotenv()
+
+# Читаем параметры из окружения (теперь они подтянулись из .env)
+BROKER_URL = os.environ.get("BROKER_URL", "amqps://10.3.124.31:61627")
+DEFAULT_QUEUE = os.environ.get("DEFAULT_QUEUE", "TO.KM")
+DEFAULT_HEADERS_FILE = os.environ.get("DEFAULT_HEADERS_FILE", "headers.json")
+USER_NAME = os.environ.get("USER_NAME", "main")
+USER_PASSWORD = os.environ.get("USER_PASSWORD")
+
 
 class Amqp10Sender(MessagingHandler):
     def __init__(self, broker_url, queue_name, file_path, custom_headers, user, password):
@@ -28,7 +33,7 @@ class Amqp10Sender(MessagingHandler):
 
     def on_start(self, event):
         ssl_domain = SSLDomain(SSLDomain.MODE_CLIENT)
-        ssl_domain.set_peer_authentication(SSLDomain.ANONYMOUS_PEER, "")
+        ssl_domain.set_peer_authentication(SSLDomain.ANONYMOUS_PEER, None)
 
         conn = event.container.connect(
             self.broker_url, 
@@ -50,7 +55,7 @@ class Amqp10Sender(MessagingHandler):
                 binary_content = f.read()
 
             msg = Message()
-            msg.properties = self.headers
+            msg.application_properties = self.headers
             msg.body = binary_content
             msg.address = self.queue_name
 
@@ -70,7 +75,6 @@ class Amqp10Sender(MessagingHandler):
         sys.exit(1)
 
     def on_connection_error(self, event):
-        """Срабатывает при ошибках авторизации или отказе брокера в соединении."""
         cond = event.connection.remote_condition
         print(f"Критическая ошибка подключения к URL! Проверьте логин/пароль или адрес брокера.", file=sys.stderr)
         print(f"Детали от брокера: {cond}", file=sys.stderr)
@@ -78,7 +82,6 @@ class Amqp10Sender(MessagingHandler):
         sys.exit(1)
 
     def on_link_error(self, event):
-        """Срабатывает, если указана несуществующая очередь или нет прав на запись в нее."""
         cond = event.link.remote_condition
         print(f"Критическая ошибка очереди! Очередь '{self.queue_name}' не существует, либо у пользователя '{self.user}' нет прав на запись (SEND).", file=sys.stderr)
         print(f"Детали от брокера: {cond}", file=sys.stderr)
@@ -87,7 +90,6 @@ class Amqp10Sender(MessagingHandler):
         sys.exit(1)
             
     def on_transport_error(self, event):
-        """Срабатывает при сетевых проблемах (неверный порт, закрыт хост, сбой SSL)."""
         print(f"Критическая сетевая ошибка (Transport Error)! Проверьте доступность хоста/порта или настройки SSL.", file=sys.stderr)
         print(f"Детали: {event.transport.condition}", file=sys.stderr)
         sys.exit(1)
@@ -105,21 +107,24 @@ if __name__ == "__main__":
         "-q", "--queue", 
         type=str, 
         default=DEFAULT_QUEUE, 
-        help=f"Имя целевой очереди (по умолчанию: {DEFAULT_QUEUE})"
+        help=f"Имя целевой очереди (по умолчанию из .env: {DEFAULT_QUEUE})"
     )
     parser.add_argument(
         "-c", "--config", 
         type=str, 
         default=DEFAULT_HEADERS_FILE, 
-        help=f"Путь к JSON-файлу с заголовками сообщения (по умолчанию: {DEFAULT_HEADERS_FILE})"
+        help=f"Путь к JSON-файлу с заголовками сообщения (по умолчанию из .env: {DEFAULT_HEADERS_FILE})"
     )
 
     args = parser.parse_args()
-    USER_PASSWORD = os.environ.get("USER_PASSWORD")
 
-    assert USER_PASSWORD, "Переменная окружения USER_PASSWORD должна быть установлена и не быть пустой"
+    # Проверка обязательного пароля
+    if not USER_PASSWORD:
+        print("Критическая ошибка: Переменная USER_PASSWORD должна быть задана в файле .env или в окружении системы!", file=sys.stderr)
+        sys.exit(1)
+        
     assert os.path.exists(args.file), f"Критическая ошибка: Файл для отправки не найден: {args.file}"
-    assert os.path.isfile(args.file), f"Критическая ошибка: Указанный путь не является файлом (возможно, это директория): {args.file}"
+    assert os.path.isfile(args.file), f"Критическая ошибка: Указанный путь не является файлом: {args.file}"
     assert os.path.exists(args.config), f"Критическая ошибка: JSON-файл конфигурации заголовков не найден: {args.config}"
 
     try:

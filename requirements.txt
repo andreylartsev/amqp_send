@@ -1,3 +1,4 @@
+python-dotenv>=1.0.0
 python-qpid-proton-wheel>=0.39.0; sys_platform == 'win32'
 python-qpid-proton>=0.39.0; sys_platform != 'win32'
 
