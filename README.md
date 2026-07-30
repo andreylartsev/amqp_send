@@ -8,15 +8,9 @@
 
 Склонируйте репозиторий с проектом на вашу локальную машину или целевой сервер:
 
-### Вариант А. По протоколу HTTPS
+### По протоколу HTTPS
 ```bash
 git clone https://github.com/andreylartsev/amqp_send.git
-cd amqp_send
-```
-
-### Вариант Б. По протоколу SSH
-```bash
-git clone git@github.com:ваш_аккаунт/amqp_send.git
 cd amqp_send
 ```
 
@@ -24,9 +18,10 @@ cd amqp_send
 
 ## 2. Установка системных зависимостей
 
+### WSL (Ubuntu) / Astra Linux
+
 Поскольку библиотека `python-qpid-proton` компилирует свое C-ядро при установке, в системе должны быть установлены компилятор и заголовочные файлы Python. 
 
-### WSL (Ubuntu) / Astra Linux
 ```bash
 sudo apt update
 sudo apt install -y build-essential python3-dev python3-venv python3-pip
@@ -39,6 +34,10 @@ sudo dnf groupinstall -y "Development Tools"
 sudo dnf install -y python3-devel
 ```
 
+### Windows
+
+Для Windows **не требуется** устанавливать компиляторы C++, CMake или SWIG. Вместо сборки из исходников используется официальный заранее скомпилированный бинарный пакет (`wheel`).
+
 ---
 
 ## 3. Развертывание виртуального окружения (Python venv)
@@ -46,19 +45,50 @@ sudo dnf install -y python3-devel
 Перейдите в директорию проекта и выполните команды для изоляции зависимостей:
 
 ```bash
-# 1. Создаем виртуальное окружение с именем wenv
-python3 -m venv wenv
+# 1. Создаем виртуальное окружение с именем .venv
+python3 -m venv .venv
 
 # 2. Активируем его
-source ./wenv/bin/activate
+source ./.venv/bin/activate
 
-# После активации в начале строки терминала появится префикс (wenv)
+# После активации в начале строки терминала появится префикс (.venv)
+```
+
+Windows PowerShell
+
+```powershell
+
+python3 -m venv .venv
+# Скорее всего потребуется разрешить запуск скриптов в PowerShell, политики "по умолчанию" их запрещают
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+./.venv/Scripts/Activate.ps1
+
 ```
 
 Обновите менеджер пакетов `pip` и установите зависимости из файла `requirements.txt`:
+
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+После чего можно проверить установились ли все зависимости и запускается ли скрипт
+
+```powershell
+(.venv) PS C:\Users\andrey.larcev\Projects\amqp_send> python.exe .\amqp_send.py -h
+usage: amqp_send.py [-h] [-q QUEUE] [-c CONFIG] file
+
+Утилита для отправки бинарных файлов в Apache ActiveMQ Artemis по протоколу AMQP 1.0.
+
+positional arguments:
+  file                  Путь к отправляемому файлу (например: my_photo.jpg или ./data.bin)
+
+options:
+  -h, --help            show this help message and exit
+  -q QUEUE, --queue QUEUE
+                        Имя целевой очереди (по умолчанию из .env: TO.KM)
+  -c CONFIG, --config CONFIG
+                        Путь к JSON-файлу с заголовками сообщения (по умолчанию из .env: headers.json)
 ```
 
 ---
@@ -66,16 +96,48 @@ pip install -r requirements.txt
 ## 4. Конфигурация и структура файлов
 
 ### Шаг 1. Статические настройки брокера
-Основные параметры сети зафиксированы в верхней части файла `amqp_send.py` в блоке `СТАТИЧЕСКАЯ КОНФИГУРАЦИЯ БРОКЕРА`. При необходимости измените хост, пользователя или имя очереди по умолчанию:
+
+Параметры зафиксированы в файле .env. При необходимости измените URL брокера, пользователя, имя очереди по умолчанию или пароль.
+В репозитории находится файл примера конфигурации [.env.example](.env.example), переименуйте его в .env и установите в нем необходимы параметры:
+
 ```python
-BROKER_URL = "amqps://127.0.0.1:6667"
-DEFAULT_QUEUE = "TO.QUEUE"
-DEFAULT_HEADERS_FILE = "headers.json"
-USER_NAME = "main"
+# ==========================================
+# Настройки подключения к брокеру сообщений
+# ==========================================
+
+# Адрес локального брокера (используем amqps для TLS)
+BROKER_URL=amqps://127.0.0.1:6667
+
+# Имя очереди по умолчанию для входящих пакетов
+DEFAULT_QUEUE=TO.QUEUE
+
+# Файл с метаданными и заголовками сообщения
+DEFAULT_HEADERS_FILE=headers.json # Должен лежать в корне проекта
+
+# Секретные данные для авторизации
+USER_NAME=user
+USER_PASSWORD=topsecret
 ```
 
+После переименования файла параметры будут применятся автоматически. 
+
+Так же любой из параметров можно передать через переменные среды окружения:
+
+```powershell
+(.venv) PS C:\Users\andrey.larcev\Projects\amqp_send> $env:USER_NAME="nobody"
+(.venv) PS C:\Users\andrey.larcev\Projects\amqp_send> python.exe .\amqp_send.py .\README.md
+Подключаемся к: amqps://xx.xx.xx.xx:yyyy, пользователем: nobody
+Критическая сетевая ошибка (Transport Error)! Проверьте доступность хоста/порта или настройки SSL.
+Детали: Condition('amqp:unauthorized-access', 'Authentication failed [mech=PLAIN]')
+
+# У nobody нет доступа
+```
+
+
 ### Шаг 2. Настройка JSON-заголовков сообщения
-Создайте в корне папки файл `headers.json`. В нем описываются пользовательские свойства (Properties) AMQP-сообщения, которые уйдут вместе с файлом:
+
+В корне папки есть файл [headers.json](headers.json). В нем описываются пользовательские свойства (Properties) AMQP-сообщения, которые уйдут вместе с файлом:
+
 ```json
 {
   "custom-header-1": "myValue",
@@ -83,6 +145,8 @@ USER_NAME = "main"
   "version": 1.0
 }
 ```
+
+Можно создать собственный файл с заголовками и передавать его имя вместе с именем файла для отправки через параметры командной строки
 
 ---
 
