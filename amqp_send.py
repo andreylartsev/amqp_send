@@ -9,11 +9,10 @@ from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
 # ==================== СТАТИЧЕСКАЯ КОНФИГУРАЦИЯ БРОКЕРА ====================
-BROKER_URL = "amqps://127.0.0.1:61627"  # Только адрес брокера (без очереди)
-DEFAULT_QUEUE = "TO.QUEUE"                   # Очередь по умолчанию
+BROKER_URL = "amqps://127.0.0.1:6667"     # Адрес брокера
+DEFAULT_QUEUE = "TO.QUEUE"                # очередь по умолчанию
 DEFAULT_HEADERS_FILE = "headers.json"     # JSON-файл заголовков по умолчанию
 USER_NAME = "main"                        # Имя пользователя брокера
-
 # ==========================================================================
 
 class Amqp10Sender(MessagingHandler):
@@ -65,34 +64,49 @@ class Amqp10Sender(MessagingHandler):
         event.connection.close()
 
     def on_rejected(self, event):
-        print(f"Ошибка: Брокер отклонил сообщение! Причина: {event.delivery.remote.condition}", file=sys.stderr)
+        print(f"Критическая ошибка: Брокер отклонил сообщение! Причина: {event.delivery.remote.condition}", file=sys.stderr)
         event.sender.close()
+        event.connection.close()
+        sys.exit(1)
+
+    def on_connection_error(self, event):
+        """Срабатывает при ошибках авторизации или отказе брокера в соединении."""
+        cond = event.connection.remote_condition
+        print(f"Критическая ошибка подключения к URL! Проверьте логин/пароль или адрес брокера.", file=sys.stderr)
+        print(f"Детали от брокера: {cond}", file=sys.stderr)
+        event.connection.close()
+        sys.exit(1)
+
+    def on_link_error(self, event):
+        """Срабатывает, если указана несуществующая очередь или нет прав на запись в нее."""
+        cond = event.link.remote_condition
+        print(f"Критическая ошибка очереди! Очередь '{self.queue_name}' не существует, либо у пользователя '{self.user}' нет прав на запись (SEND).", file=sys.stderr)
+        print(f"Детали от брокера: {cond}", file=sys.stderr)
+        event.link.close()
         event.connection.close()
         sys.exit(1)
             
     def on_transport_error(self, event):
-        print(f"Сетевая ошибка AMQP/SSL: {event.transport.condition}", file=sys.stderr)
+        """Срабатывает при сетевых проблемах (неверный порт, закрыт хост, сбой SSL)."""
+        print(f"Критическая сетевая ошибка (Transport Error)! Проверьте доступность хоста/порта или настройки SSL.", file=sys.stderr)
+        print(f"Детали: {event.transport.condition}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     
-    # Позиционный аргумент: путь к бинарному файлу
     parser.add_argument(
         "file", 
         type=str, 
         help="Путь к отправляемому файлу (например: my_photo.jpg или ./data.bin)"
     )
-    
-    # Опциональный аргумент: имя очереди
     parser.add_argument(
         "-q", "--queue", 
         type=str, 
         default=DEFAULT_QUEUE, 
         help=f"Имя целевой очереди (по умолчанию: {DEFAULT_QUEUE})"
     )
-
-    # Опциональный аргумент: путь к JSON-файлу с заголовками
     parser.add_argument(
         "-c", "--config", 
         type=str, 
@@ -101,17 +115,13 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    # Чтение пароля
     USER_PASSWORD = os.environ.get("USER_PASSWORD")
 
-    # Валидация аргументов файловой системы
     assert USER_PASSWORD, "Переменная окружения USER_PASSWORD должна быть установлена и не быть пустой"
     assert os.path.exists(args.file), f"Критическая ошибка: Файл для отправки не найден: {args.file}"
     assert os.path.isfile(args.file), f"Критическая ошибка: Указанный путь не является файлом (возможно, это директория): {args.file}"
     assert os.path.exists(args.config), f"Критическая ошибка: JSON-файл конфигурации заголовков не найден: {args.config}"
 
-    # Чтение и парсинг JSON-файла с заголовками
     try:
         with open(args.config, "r", encoding="utf-8") as json_file:
             loaded_headers = json.load(json_file)
@@ -120,7 +130,6 @@ if __name__ == "__main__":
         print(f"Критическая ошибка: Не удалось распарсить JSON-файл заголовков! Причина: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Запуск продюсера с динамическими заголовками
     handler = Amqp10Sender(
         broker_url=BROKER_URL,
         queue_name=args.queue,
