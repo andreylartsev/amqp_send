@@ -9,8 +9,8 @@ from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
 # ==================== СТАТИЧЕСКАЯ КОНФИГУРАЦИЯ БРОКЕРА ====================
-BROKER_URL = "amqps://10.3.124.31:61627"  # Только адрес брокера (без очереди)
-DEFAULT_QUEUE = "TO.KM"                   # Очередь по умолчанию
+BROKER_URL = "amqps://127.0.0.1:61627"  # Только адрес брокера (без очереди)
+DEFAULT_QUEUE = "TO.QUEUE"                   # Очередь по умолчанию
 DEFAULT_HEADERS_FILE = "headers.json"     # JSON-файл заголовков по умолчанию
 USER_NAME = "main"                        # Имя пользователя брокера
 
