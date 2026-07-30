@@ -14,7 +14,7 @@ cd amqp_send
 
 ### Вариант Б. По протоколу SSH (Если настроены SSH-ключи в GitHub)
 ```bash
-git clone git@github.com:ваш_аккаунт/amqp_send.git
+git clone git@github.com:andreylartsev/amqp_send.git
 cd amqp_send
 ```
 
