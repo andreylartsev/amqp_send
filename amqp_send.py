@@ -55,7 +55,7 @@ class Amqp10Sender(MessagingHandler):
             password=self.password, 
             ssl_domain=ssl_domain
         )
-        print(f"Подключаемся к (SSL без проверок сертификата сервера): {self.url}, пользователем: {self.user}")
+        print(f"Подключаемся к (SSL без проверок сертификат сервера): {self.url}, пользователем: {self.user}")
         event.container.create_sender(conn)
 
     def on_sendable(self, event):
