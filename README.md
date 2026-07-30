@@ -8,7 +8,7 @@
 
 ### Вариант А. По протоколу HTTPS (Рекомендуемый для быстрой настройки)
 ```bash
-git clone https://github.com/
+git clone https://github.com/andreylartsev/amqp_send.git
 cd amqp_send
 ```
 
