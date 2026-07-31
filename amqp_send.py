@@ -13,8 +13,8 @@ from proton.reactor import Container
 load_dotenv()
 
 # Читаем параметры из окружения (теперь они подтянулись из .env)
-BROKER_URL = os.environ.get("BROKER_URL", "amqps://10.3.124.31:61627")
-DEFAULT_QUEUE = os.environ.get("DEFAULT_QUEUE", "TO.KM")
+BROKER_URL = os.environ.get("BROKER_URL", "amqps://127.0.0.1:6667")
+DEFAULT_QUEUE = os.environ.get("DEFAULT_QUEUE", "TO.QUEUE")
 DEFAULT_HEADERS_FILE = os.environ.get("DEFAULT_HEADERS_FILE", "headers.json")
 USER_NAME = os.environ.get("USER_NAME", "main")
 USER_PASSWORD = os.environ.get("USER_PASSWORD")
