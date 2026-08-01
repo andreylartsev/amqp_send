@@ -1,6 +1,6 @@
 # Утилита отправки файлов в Apache ActiveMQ Artemis (AMQP 1.0)
 
-Скрипт на Python для надежной отправки бинарных файлов с пользовательскими заголовками в очереди Artemis. Работает по защищенному протоколу **AMQP 1.0 (SSL/TLS)** с автоматическим игнорированием самоподписанных сертификатов.
+Скрипт на Python для отправки бинарных файлов (или папок с файлами) с пользовательскими заголовками в очереди Artemis. Работает по защищенному протоколу **AMQP 1.0 (SSL/TLS)** с автоматическим игнорированием самоподписанных сертификатов.
 
 ---
 
@@ -74,21 +74,23 @@ python -m pip install -r requirements.txt
 
 После чего можно проверить установились ли все зависимости и запускается ли скрипт
 
+Windows PowerShell
+
 ```powershell
 (.venv) PS C:\Users\andrey.larcev\Projects\amqp_send> python.exe .\amqp_send.py -h
-usage: amqp_send.py [-h] [-q QUEUE] [-c CONFIG] file
+usage: amqp_send.py [-h] [-q QUEUE] [-H HEADERS] path
 
-Утилита для отправки бинарных файлов в Apache ActiveMQ Artemis по протоколу AMQP 1.0.
+Утилита для отправки файлов (одного или всей папки) в Apache ActiveMQ Artemis по протоколу AMQP 1.0.
 
 positional arguments:
-  file                  Путь к отправляемому файлу (например: my_photo.jpg или ./data.bin)
+  path                  Путь к файлу или папке с файлами для отправки
 
 options:
   -h, --help            show this help message and exit
   -q QUEUE, --queue QUEUE
-                        Имя целевой очереди (по умолчанию из .env: TO.KM)
-  -c CONFIG, --config CONFIG
-                        Путь к JSON-файлу с заголовками сообщения (по умолчанию из .env: headers.json)
+                        Имя целевой очереди
+  -H HEADERS, --headers HEADERS
+                        Путь к JSON-файлу с заголовками
 ```
 
 ---
@@ -122,7 +124,7 @@ USER_PASSWORD=topsecret
 После переименования файла, параметры будут применятся автоматически. 
 
 Так же любой из параметров можно передать через переменные среды окружения:
-
+(Windows PowerShell)
 ```powershell
 (.venv) PS C:\Users\andrey.larcev\Projects\amqp_send> $env:USER_NAME="nobody"
 (.venv) PS C:\Users\andrey.larcev\Projects\amqp_send> python.exe .\amqp_send.py .\README.md
@@ -159,16 +161,23 @@ USER_PASSWORD=topsecret
 ```bash
 USER_PASSWORD="ваш_секретный_пароль" python amqp_send.py путь_к_файлу.ext
 ```
+в Windows PowerShell
+``` powershell
+$env:USER_PASSWORD="ваш_секретный_пароль"
+python amqp_send.py путь_к_файлу.ext
+```
 *Скрипт автоматически возьмет заголовки из `headers.json` и отправит файл в очередь `TO.QUEUE`.*
 
 ### Отправка в другую очередь (Флаг `-q`)
 Вы можете переопределить целевую очередь без изменения кода скрипта:
+(Linux)
 ```bash
 USER_PASSWORD="ваш_секретный_пароль" python amqp_send.py file.bin -q ANOTHER.QUEUE
 ```
 
 ### Использование альтернативного файла заголовков (Флаг `-c`)
 Если для разных типов файлов нужны разные метаданные, укажите путь к кастомному JSON-конфигу:
+(Linux)
 ```bash
 USER_PASSWORD="ваш_секретный_пароль" python amqp_send.py file.bin -c custom_meta.json
 ```
@@ -180,6 +189,19 @@ USER_PASSWORD="ваш_секретный_пароль" python amqp_send.py file.
 Отправляем файл: README.md на адрес: TO.QUEUE...
 Файл отправлен в сеть, ожидаем подтверждения (ACK) от брокера...
 Успех! Брокер Artemis подтвердил получение и сохранение файла README.md!
+```
+
+### Альтернативно можно отправить файлы из папки указав вместо конкретного файла директорию:
+(Windows PowerShell)
+```powershell
+(.venv) PS C:\Users\andrey.larcev\Projects\amqp_send> python.exe .\amqp_send.py .\files_to_send\
+Режим: Отправка всех файлов из папки.
+Подключаемся к: amqps://xxx:6667, пользователем: user
+Отправляем файл [2 осталось]: file1.txt...
+Успех! Брокер подтвердил получение файла: file1.txt
+Отправляем файл [1 осталось]: file2.txt...
+Успех! Брокер подтвердил получение файла: file2.txt
+Все файлы успешно отправлены!
 ```
 
 ## Деактивация окружения
