@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from proton import Message, SSLDomain
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
+from typing import Any
 
 class CommandError(Exception):
     """Критическая ошибка, завершающая скрипт."""
@@ -27,13 +28,14 @@ USER_PASSWORD = os.environ.get("USER_PASSWORD")
 
 
 class Amqp10Sender(MessagingHandler):
-    def __init__(self, broker_url, queue_name, file_queue: list[Path], custom_headers, user, password):
+    def __init__(self, broker_url, queue_name, file_queue: list[Path], custom_headers, user, password, as_text=False):
         super().__init__()
         self.broker_url = broker_url
         self.queue_name = queue_name
         self.custom_headers = custom_headers
         self.user = user
         self.password = password
+        self.as_text = as_text
         
         # Очередь файлов на отправку
         self.file_queue = file_queue
@@ -75,7 +77,7 @@ class Amqp10Sender(MessagingHandler):
         print(f"Отправляем файл [{len(self.file_queue) + 1} осталось]: {self.current_file.name}...")
         
         try:
-            binary_content = self.current_file.read_bytes()
+            file_content = self._get_file_content(self.current_file)
         except Exception as e:
             print(f"Предупреждение: Не удалось прочитать файл {self.current_file.name}: {e}", file=sys.stderr)
             self.sending_in_progress = False
@@ -84,10 +86,17 @@ class Amqp10Sender(MessagingHandler):
 
         msg = Message()
         msg.properties = self.custom_headers
-        msg.body = binary_content
+        msg.body = file_content
         msg.address = self.queue_name
 
         sender.send(msg)
+
+    def _get_file_content(self, file_path: Path) -> Any:
+        if self.as_text:
+            result = file_path.read_text(encoding="utf-8", errors="replace")
+        else:
+            result = file_path.read_bytes()
+        return result 
 
     def on_sendable(self, event):
         self._send_next(event.sender)
@@ -171,6 +180,12 @@ if __name__ == "__main__":
         default=DEFAULT_HEADERS_FILE, 
         help="Путь к JSON-файлу с заголовками"
     )
+    parser.add_argument(
+        "--as-text", 
+        type=bool, 
+        default=False, 
+        help="Отправлять как текст"
+    )
 
     args = parser.parse_args()
 
@@ -206,7 +221,8 @@ if __name__ == "__main__":
             file_queue=files_to_send,
             custom_headers=loaded_headers,
             user=USER_NAME,
-            password=USER_PASSWORD
+            password=USER_PASSWORD,
+            as_text = args.as_text
         )
         
         # Запуск реактора AMQP

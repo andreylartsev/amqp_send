@@ -26,3 +26,5 @@ Thumbs.db
 *.bin
 *.exe
 *.dat
+
+private_env/
