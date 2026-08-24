@@ -175,11 +175,11 @@ python amqp_send.py путь_к_файлу.ext
 USER_PASSWORD="ваш_секретный_пароль" python amqp_send.py file.bin -q ANOTHER.QUEUE
 ```
 
-### Использование альтернативного файла заголовков (Флаг `-c`)
+### Использование альтернативного файла заголовков (Флаг `-H`)
 Если для разных типов файлов нужны разные метаданные, укажите путь к кастомному JSON-конфигу:
 (Linux)
 ```bash
-USER_PASSWORD="ваш_секретный_пароль" python amqp_send.py file.bin -c custom_meta.json
+USER_PASSWORD="ваш_секретный_пароль" python amqp_send.py file.bin -H custom_meta.json
 ```
 
 ### Ожидаемый результат работы
