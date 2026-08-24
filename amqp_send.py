@@ -13,8 +13,6 @@ from typing import Any
 
 class CommandError(Exception):
     """Критическая ошибка, завершающая скрипт."""
-    def __init__(self, message):
-        super().__init__(f"Критическая ошибка: {message}")
 
 # Автоматически ищем и загружаем файл .env в системное окружение
 load_dotenv()
@@ -181,10 +179,9 @@ if __name__ == "__main__":
         help="Путь к JSON-файлу с заголовками"
     )
     parser.add_argument(
-        "--as-text", 
-        type=bool, 
-        default=False, 
-        help="Отправлять как текст"
+        "--as-text",
+        action="store_true", 
+        help="Отправлять как текстовое сообщение"
     )
 
     args = parser.parse_args()
