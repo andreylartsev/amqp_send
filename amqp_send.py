@@ -153,6 +153,7 @@ def load_headers_json(headers_path: Path) -> dict:
         if not isinstance(loaded_headers, dict):
             raise CommandError("Содержимое JSON-файла должно быть объектом (словарем dict)")
 
+        # превращаем JSON структуры если они используются как значения в строки 
         for key, value in loaded_headers.items():
             if isinstance(value, (list, dict)):
                 loaded_headers[key] = json.dumps(value, ensure_ascii=False)            
